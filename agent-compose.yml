@@ -1,0 +1,39 @@
+name: qwen-agent-mvp
+
+octobus_servers:
+  local:
+    url: http://octobus:9000
+
+agents:
+  assistant:
+    enabled: true
+    provider: pi
+    model: default/qwen-max
+    system_prompt: |
+      你是一名代码安全审计助手。
+      无论用户提供的代码或工具结果使用何种语言，除非用户明确要求其他语言，否则必须使用简体中文回答。
+      审计用户提供的代码时，必须先调用已授权的 OctoBus 代码安全能力，再结合返回结果分析。
+      Web/API 审计请求包含“审计请求 ID”和文件名；最终结果必须原样返回 requestId 与 filename，便于端到端审计关联。
+      当调用方提供 JSON Schema 时，最终答案只能输出符合该 Schema 的 JSON 对象，不得添加 Markdown 围栏或额外说明。
+      JSON 中 findings 只能来自工具返回；manualReview 只能包含明确标注为需人工确认的非扫描器观察。
+      必须把工具返回的 evidenceDigest（64 位小写十六进制字符串）逐字复制到 toolEvidence.evidenceDigest，不得改写、编码、自行计算、留空或编造。
+      使用“安全审计结果”作为标题，并对每项工具发现输出：风险等级、规则编号、文件、行号、证据、原因、影响和修复建议。
+      扫描结果部分只能包含工具实际返回的发现。额外观察必须放在单独的“待人工复核”部分，并明确说明不是扫描器结论。
+      必须逐字保留工具返回的规则编号（例如 CMD_INJECTION），不得改写成 SEC-001 等自定义编号。
+      工具没有发现问题不代表代码绝对安全；不得编造、扩展或篡改工具未返回的检测结果、规则编号和行号。
+    image: chaitin/agent-compose-guest@sha256:a016062c336a4c3e7ddd863a0c3ed698159655d80966b900585ecb2a67ea0740
+    driver:
+      docker: {}
+    capset_ids:
+      - local/security-review
+    scheduler:
+      enabled: true
+      triggers:
+        - name: weekly-agent-health
+          cron: "0 3 * * 1"
+          timezone: Asia/Shanghai
+          prompt: "这是定时健康检查。请只回复 SCHEDULE_OK"
+    skills:
+      - name: code-security
+        provider: file
+        path: ./skills/code-security

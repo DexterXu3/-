@@ -1,0 +1,17 @@
+.env
+.env.local
+.env.*
+!.env.example
+data/
+*.log
+__pycache__/
+*.pyc
+verification-output/
+node_modules/
+dist/
+coverage/
+*.tgz
+*.tar.gz
+*.zip
+.DS_Store
+Thumbs.db

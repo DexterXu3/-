@@ -1,0 +1,32 @@
+syntax = "proto3";
+
+package codesecurity.v1;
+
+service CodeSecurityService {
+  rpc AnalyzeSnippet(AnalyzeSnippetRequest) returns (AnalyzeSnippetResponse);
+}
+
+message AnalyzeSnippetRequest {
+  string filename = 1;
+  string language = 2;
+  string code = 3;
+}
+
+message Finding {
+  string rule_id = 1 [json_name = "ruleId"];
+  string severity = 2;
+  int32 line = 3;
+  string title = 4;
+  string evidence = 5;
+  string reason = 6;
+  string remediation = 7;
+}
+
+message AnalyzeSnippetResponse {
+  string filename = 1;
+  string language = 2;
+  int32 scanned_lines = 3 [json_name = "scannedLines"];
+  repeated Finding findings = 4;
+  string disclaimer = 5;
+  string evidence_digest = 6 [json_name = "evidenceDigest"];
+}

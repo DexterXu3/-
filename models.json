@@ -1,0 +1,17 @@
+{
+  "default": "dashscope/qwen-max",
+  "providers": {
+    "dashscope": {
+      "baseUrl": "$QWEN_BASE_URL",
+      "protocol": "chat_completions",
+      "apiKey": "$DASHSCOPE_API_KEY",
+      "models": [
+        {
+          "id": "qwen-max",
+          "name": "Qwen Max",
+          "maxOutputTokens": 8192
+        }
+      ]
+    }
+  }
+}

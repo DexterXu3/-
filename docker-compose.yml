@@ -1,0 +1,81 @@
+services:
+  octobus:
+    image: ghcr.io/chaitin/octobus@sha256:377409360a3d54f8e058340a7fb4874a994f18d11d35ba8f7cae0bec23a724a6
+    container_name: octobus-dev
+    restart: always
+    volumes:
+      - octobus-data:/var/lib/octobus
+      - ./octobus/code-security:/opt/code-security:ro
+    ports:
+      - 127.0.0.1:9000:9000
+    healthcheck:
+      test: ["CMD", "octobus", "status"]
+      interval: 15s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
+  agent-compose:
+    image: chaitin/agent-compose@sha256:092f8c4fbf7254ddd200a36d99ae6583cd08f5ddeda9cafd559b3636890c9670
+    container_name: qwen-agent-mvp-daemon
+    restart: always
+    env_file:
+      - ./.env
+    environment:
+      DATA_ROOT: /data
+      HTTP_LISTEN: 0.0.0.0:7410
+      RUNTIME_DRIVER: docker
+      DEFAULT_IMAGE: chaitin/agent-compose-guest@sha256:a016062c336a4c3e7ddd863a0c3ed698159655d80966b900585ecb2a67ea0740
+      AGENT_COMPOSE_RUNTIME_BASE_URL: http://agent-compose:7410
+      LLM_API_ENDPOINT: ${QWEN_BASE_URL}
+      LLM_API_PROTOCOL: chat_completions
+      LLM_API_KEY: ${DASHSCOPE_API_KEY}
+      OPENAI_API_KEY: ${DASHSCOPE_API_KEY}
+      LLM_MODEL: qwen-max
+      LLM_MAX_OUTPUT_TOKENS: 8192
+      LLM_TIMEOUT: 120s
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./data:/data
+      - ./:/data/work:ro
+    working_dir: /data/work
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - 127.0.0.1:7411:7410
+    depends_on:
+      octobus:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ./web
+    container_name: qwen-agent-mvp-web
+    restart: always
+    environment:
+      WEB_HOST: 0.0.0.0
+      WEB_PORT: 3000
+      AGENT_COMPOSE_URL: http://agent-compose:7410
+      AGENT_COMPOSE_PROJECT: qwen-agent-mvp
+      AGENT_COMPOSE_AGENT: assistant
+      WEB_USERNAME: ${WEB_USERNAME:-examiner}
+      WEB_PASSWORD: ${WEB_PASSWORD:?Set WEB_PASSWORD in .env}
+      WEB_RATE_LIMIT_MAX: ${WEB_RATE_LIMIT_MAX:-10}
+      WEB_RATE_LIMIT_WINDOW_MS: ${WEB_RATE_LIMIT_WINDOW_MS:-60000}
+      WEB_MAX_CONCURRENT_AUDITS: ${WEB_MAX_CONCURRENT_AUDITS:-1}
+    ports:
+      - 127.0.0.1:3000:3000
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:3000/api/health"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    depends_on:
+      agent-compose:
+        condition: service_started
+
+volumes:
+  octobus-data:
+    name: octobus-data
+    external: true

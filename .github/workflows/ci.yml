@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: |
+            web/pnpm-lock.yaml
+            octobus/code-security/pnpm-lock.yaml
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+          run_install: false
+      - name: Rule tests
+        run: node --test octobus/code-security/test/analyzer.test.js
+      - name: Web and anti-bypass tests
+        run: node --test web/test/*.test.js
+      - name: JavaScript syntax
+        run: |
+          node --check web/server.js
+          node --check web/public/app.js
+      - name: Compose configuration
+        run: cp .env.example .env && docker compose config --quiet
+      - name: Model consistency
+        run: |
+          grep -q 'model: default/qwen-max' agent-compose.yml
+          grep -q '"default": "dashscope/qwen-max"' models.json
+          grep -q 'QWEN_MODEL=qwen-max' .env.example
+          grep -q 'LLM_MODEL: qwen-max' docker-compose.yml
+          grep -q 'LLM_API_ENDPOINT: ${QWEN_BASE_URL}' docker-compose.yml
+          grep -q '"baseUrl": "$QWEN_BASE_URL"' models.json
+          grep -q 'QWEN_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1' .env.example
+          ! git grep -n 'qwen-plus'
+      - name: Reject Web-to-OctoBus bypass
+        run: '! grep -R -E "OCTOBUS_ANALYZE_URL|capsets/security-review/connect" web docker-compose.yml'
+      - name: Reject floating container images
+        run: '! grep -R -n -E "image:.*:latest|FROM .*:latest" docker-compose.yml agent-compose.yml web/Dockerfile'
+      - name: Require automatic restart policy
+        run: test "$(grep -c 'restart: always' docker-compose.yml)" -eq 3
+      - name: Reject committed secrets
+        shell: bash
+        run: |
+          if git grep -n -E 'sk-[A-Za-z0-9_.-]{12,}' -- ':!.env.example'; then
+            echo 'Potential secret detected.' >&2
+            exit 1
+          fi

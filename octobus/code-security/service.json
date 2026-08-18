@@ -1,0 +1,14 @@
+{
+  "schema": "chaitin.octobus.service.v1",
+  "name": "code-security",
+  "displayName": "Code Security Scanner",
+  "description": "Deterministic, read-only first-pass security checks for source snippets.",
+  "runtime": {
+    "mode": "on-demand"
+  },
+  "proto": {
+    "roots": ["proto"],
+    "files": ["proto/code_security.proto"]
+  }
+}
+
